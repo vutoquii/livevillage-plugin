@@ -1,6 +1,7 @@
 package com.vutocorp.livevillage;
 
 import com.vutocorp.livevillage.comandos.LvCommand;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Logger;
@@ -30,6 +31,8 @@ public final class LiveVillagePlugin extends JavaPlugin {
         Mascotas.usarCarpeta(getDataFolder());
         String avisoMascotas = Mascotas.cargar();
         if (avisoMascotas != null) getLogger().warning("Tabla de mascotas: " + avisoMascotas);
+        ConexionTikTok.usarCarpeta(getDataFolder().toPath());
+        TikTokManager.init(datos);
         getCommand("lv").setExecutor(new LvCommand(this, datos));
         getLogger().info("Pueblos cargados: " + datos.villages.size()
             + ", modelos: " + Skins.modelIds().size());
@@ -37,6 +40,7 @@ public final class LiveVillagePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        TikTokManager.desconectar(Bukkit.getConsoleSender());
         if (datos != null) datos.guardar();
     }
 

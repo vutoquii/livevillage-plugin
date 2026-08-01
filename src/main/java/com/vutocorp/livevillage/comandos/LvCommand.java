@@ -47,9 +47,17 @@ public final class LvCommand implements CommandExecutor {
         if (args.length >= 2 && "mob".equalsIgnoreCase(args[0])) {
             return MobCommand.run(sender, args, datos);
         }
+        if (args.length >= 1 && "tiktok".equalsIgnoreCase(args[0])) {
+            return TikTokCommand.run(sender, args);
+        }
+        if (args.length >= 2 && "gift".equalsIgnoreCase(args[0])) {
+            return GiftCommand.run(sender, args, datos);
+        }
         sender.sendMessage("Uso: /lv village create <nombre> | /lv village list");
         sender.sendMessage("     /lv model info <modelo> | /lv model test <modelo> [rot]");
         sender.sendMessage("     /lv house add <pueblo> <donador> [modelo] | /lv house remove <pueblo> <num>");
+        sender.sendMessage("     /lv tiktok connect <usuario> <pueblo> | disconnect | status | diag");
+        sender.sendMessage("     /lv gift simulate <pueblo> <donador> <giftId> <monedas>");
         return true;
     }
 

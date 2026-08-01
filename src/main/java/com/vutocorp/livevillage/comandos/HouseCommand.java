@@ -1,21 +1,16 @@
 package com.vutocorp.livevillage.comandos;
 
-import com.vutocorp.livevillage.Cfg;
+import com.vutocorp.livevillage.Donaciones;
 import com.vutocorp.livevillage.House;
-import com.vutocorp.livevillage.NameUtil;
-import com.vutocorp.livevillage.Skins;
-import com.vutocorp.livevillage.Structures;
 import com.vutocorp.livevillage.Village;
 import com.vutocorp.livevillage.VillageData;
 import com.vutocorp.livevillage.VillageEngine;
-import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 
 /**
- * /lv house add|remove — colocar y quitar casas.
- *
- * Es la version de Donaciones.colocar() del mod sin la parte de ritmo ni de regalos:
- * eso llega en la Fase 4. Aqui solo interesa que la casa se coloque bien.
+ * /lv house add|remove — colocar y quitar casas a mano. Delegan en Donaciones.colocar()
+ * con saltarRitmo=true: un admin no tiene por que esperar el cooldown que existe para
+ * frenar una racha de regalos, igual que en el mod.
  */
 public final class HouseCommand {
 
@@ -37,43 +32,15 @@ public final class HouseCommand {
         Village v = datos.byName(args[2]);
         if (v == null) { sender.sendMessage("No existe el pueblo '" + args[2] + "'."); return true; }
 
-        World w = VillageEngine.worldOf(v);
         String donador = args[3];
         String modelId = args.length >= 5 ? args[4] : null;
 
-        Skins.Model model = Skins.model(modelId);
-        if (modelId != null && model == null) {
-            sender.sendMessage("No existe el modelo '" + modelId + "'.");
-            return true;
-        }
-        if (model == null) model = Skins.cheapest(v.skin == null ? Cfg.DEFAULT_SKIN : v.skin);
-
-        // La plaza tiene que existir antes que la primera casa: es de donde salen las avenidas.
-        if (v.houses.isEmpty() && v.pathCells.isEmpty())
-            VillageEngine.buildPlaza(w, v, v.plazaX, v.plazaY, v.plazaZ);
-
-        // Huella real del modelo: sin saber aun la rotacion se reserva la medida mayor.
-        int hx = Cfg.PLOT_HALF, hz = Cfg.PLOT_HALF;
-        if (model != null) {
-            Structures.Info info = Structures.info(model.structure);
-            if (info != null) { hx = Math.max(info.sizeX, info.sizeZ) / 2; hz = hx; }
-            else model = null;                                  // sin .nbt: cabaña provisional
-        }
-
-        int[] flat = VillageEngine.findSpot(w, v, hx, hz);
-        if (flat == null) { sender.sendMessage("No encontre sitio libre y seco en '" + v.name + "'."); return true; }
-        int groundY = VillageEngine.averageGroundY(w, flat[0], flat[1], hx, hz);
-
-        String limpio = NameUtil.clean(donador);
-        House h = new House(donador, limpio, flat[0], groundY, flat[1], "north");
-        h.num = ++v.nextNum;
-        if (model != null) h.modelId = model.id;
-        v.houses.add(h);          // registrar ANTES: asi su propio camino la respeta
-
-        VillageEngine.buildHouse(w, v, h, flat[0], groundY, flat[1]);
+        Donaciones.Resultado r = Donaciones.colocar(v, modelId, donador, true);
+        if (!r.ok()) { sender.sendMessage("FALLO: " + r.detalle); return true; }
         datos.guardar();
 
-        sender.sendMessage("Casa #" + h.num + " de '" + limpio + "' en ("
+        House h = r.casa;
+        sender.sendMessage("Casa #" + h.num + " de '" + h.name + "' en ("
             + h.x + "," + h.y + "," + h.z + ") mirando al " + h.facing
             + ", modelo " + (h.modelId == null ? "provisional" : h.modelId)
             + ", " + h.cambios.size() + " bloques registrados.");
