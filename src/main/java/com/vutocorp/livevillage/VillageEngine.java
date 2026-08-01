@@ -367,7 +367,9 @@ public final class VillageEngine {
         // 7) cofres vacios
         if (Cfg.EMPTY_CONTAINERS) Structures.emptyContainers(w, minX, baseY, minZ, fw, fh, fd);
 
-        // 7b) aldeano + puesto de trabajo + cartel: Fase 3 (Villagers todavia no portado).
+        // 7b) aldeano + puesto de trabajo + cartel, en las posiciones de las marcas
+        Villagers.populate(w, house);
+
         // 8) camino desde la puerta, al nivel del TERRENO (no de la casa levantada)
         PathBuilder.build(w, v, house, doorX, doorZ, groundY, house.facing);
     }
@@ -508,6 +510,9 @@ public final class VillageEngine {
     }
 
     public static void restore(World w, House house) {
+        // Las mascotas se van con la casa: si no, quedan mobs con nombre flotando sobre
+        // el terreno restaurado y nadie sabe de donde salieron.
+        Mascotas.borrarDe(w, house);
         // deshacer en orden inverso
         for (int i = house.cambios.size() - 1; i >= 0; i--) {
             House.Cambio c = house.cambios.get(i);

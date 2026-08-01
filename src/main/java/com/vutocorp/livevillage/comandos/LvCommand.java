@@ -39,6 +39,9 @@ public final class LvCommand implements CommandExecutor {
         if (args.length >= 2 && "house".equalsIgnoreCase(args[0])) {
             return HouseCommand.run(sender, args, datos);
         }
+        if (args.length >= 2 && "mob".equalsIgnoreCase(args[0])) {
+            return MobCommand.run(sender, args, datos);
+        }
         sender.sendMessage("Uso: /lv village create <nombre> | /lv village list");
         sender.sendMessage("     /lv model info <modelo> | /lv model test <modelo> [rot]");
         sender.sendMessage("     /lv house add <pueblo> <donador> [modelo] | /lv house remove <pueblo> <num>");
