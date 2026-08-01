@@ -1,9 +1,14 @@
 package com.vutocorp.livevillage.comandos;
 
 import com.vutocorp.livevillage.LiveVillagePlugin;
+import com.vutocorp.livevillage.PathBuilder;
 import com.vutocorp.livevillage.Perms;
 import com.vutocorp.livevillage.Village;
 import com.vutocorp.livevillage.VillageData;
+import com.vutocorp.livevillage.VillageEngine;
+import org.bukkit.Bukkit;
+import org.bukkit.HeightMap;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -68,16 +73,32 @@ public final class LvCommand implements CommandExecutor {
                     p.getLocation().getBlockX(), p.getLocation().getBlockY(), p.getLocation().getBlockZ());
                 v.ownerName = p.getName();
             } else {
-                // Consola/RCON: igual que en el mod, sin dueño (owner vacio) = solo admins lo gestionan.
-                // Sin jugador no hay "donde estoy parado", asi que exige world+x+y+z a mano.
-                if (args.length < 7) {
-                    sender.sendMessage("Desde consola: /lv village create <nombre> <world> <x> <y> <z>");
+                // Consola/RCON: igual que en el mod, sin dueño (owner vacio) = solo admins lo
+                // gestionan. Sin jugador no hay "donde estoy parado", asi que pide world+x+z a
+                // mano PERO calcula la Y del terreno real: aceptar una Y a mano fue justamente
+                // el error que produjo pueblos con la plaza a 7 bloques de la altura real del
+                // suelo (los arboles se rechazaban todos por "desnivel" al comprobarlo en juego).
+                if (args.length < 6) {
+                    sender.sendMessage("Desde consola: /lv village create <nombre> <world> <x> <z>");
                     return true;
                 }
-                v = new Village(nombre, "", args[3],
-                    Integer.parseInt(args[4]), Integer.parseInt(args[5]), Integer.parseInt(args[6]));
+                World w = Bukkit.getWorld(args[3]);
+                if (w == null) { sender.sendMessage("No existe el mundo '" + args[3] + "'."); return true; }
+                int x = Integer.parseInt(args[4]), z = Integer.parseInt(args[5]);
+                int y = w.getHighestBlockYAt(x, z, HeightMap.WORLD_SURFACE);
+                v = new Village(nombre, "", args[3], x, y, z);
             }
             datos.put(v);
+
+            // La plaza y las 4 avenidas se levantan AQUI, no al añadir la primera casa: es
+            // lo que hace /lv village create en el mod (LvCommands.createVillage), y sin esto
+            // el comando solo registra datos sin poner un solo bloque, lo que confunde a
+            // cualquiera que espere ver algo aparecer donde estaba parado.
+            World w = VillageEngine.worldOf(v);
+            VillageEngine.buildPlaza(w, v, v.plazaX, v.plazaY, v.plazaZ);
+            PathBuilder.ensureTrunks(w, v);
+            datos.guardar();
+
             sender.sendMessage("Pueblo '" + nombre + "' creado en " + v.world + " ("
                 + v.plazaX + "," + v.plazaY + "," + v.plazaZ + "). Guardado.");
             return true;
