@@ -62,6 +62,19 @@ public class House {
     public int halfZ() { return sizeZ > 0 ? sizeZ / 2 : Cfg.PLOT_HALF; }
     public int halfMax() { return Math.max(halfX(), halfZ()); }
 
+    /**
+     * Y donde parar los pies para quedar de pie en el suelo de la casa, NO en el
+     * terreno. Trampa documentada en CLAUDE.md: 'y' es la altura del TERRENO cuando se
+     * sorteo la parcela, no el suelo acabado; con Skin.lift > 0 no coinciden. Un
+     * teletransporte a "y + 1" a secas deja al jugador metido en el suelo cuando la
+     * skin levanta la casa (la japonesa, lift=1).
+     */
+    public int floorY() {
+        Skins.Model m = Skins.model(modelId);
+        int lift = m == null ? 0 : m.lift();
+        return y + lift + 1;
+    }
+
     public Map<String, Object> toMap() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("donorRaw", donorRaw == null ? "" : donorRaw);

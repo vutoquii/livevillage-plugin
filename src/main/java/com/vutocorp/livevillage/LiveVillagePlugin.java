@@ -1,6 +1,8 @@
 package com.vutocorp.livevillage;
 
-import com.vutocorp.livevillage.comandos.LvCommand;
+import com.vutocorp.livevillage.comandos.LvBrigadier;
+import com.vutocorp.livevillage.gui.PuebloGui;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -33,7 +35,12 @@ public final class LiveVillagePlugin extends JavaPlugin {
         if (avisoMascotas != null) getLogger().warning("Tabla de mascotas: " + avisoMascotas);
         ConexionTikTok.usarCarpeta(getDataFolder().toPath());
         TikTokManager.init(datos);
-        getCommand("lv").setExecutor(new LvCommand(this, datos));
+
+        LvBrigadier arbol = new LvBrigadier(datos);
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+            event.registrar().register(arbol.build(), "Comandos de LiveVillage"));
+        Bukkit.getPluginManager().registerEvents(new PuebloGui(), this);
+
         getLogger().info("Pueblos cargados: " + datos.villages.size()
             + ", modelos: " + Skins.modelIds().size());
     }
