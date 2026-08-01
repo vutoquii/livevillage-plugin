@@ -1,0 +1,7 @@
+name: LiveVillage
+version: ${project.version}
+main: com.vutocorp.livevillage.LiveVillagePlugin
+api-version: '1.21.4'
+commands:
+  lv:
+    description: Comandos de LiveVillage
