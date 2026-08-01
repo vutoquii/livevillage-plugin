@@ -40,14 +40,13 @@ processResources {
     }
 }
 
-// Publicacion en Hangar (el CurseForge de los plugins Paper). El slug del proyecto y el
-// canal se fijan una vez que exista la cuenta/proyecto de Hangar; hasta entonces esto
-// compila pero 'publishPluginPublicationToHangar' falla al no tener token ni proyecto.
+// Publicacion en Hangar (el CurseForge de los plugins Paper).
+// https://hangar.papermc.io/Vutoquii/LiveVillages
 hangarPublish {
     publications.register('plugin') {
         version = project.version
         channel = 'Release'
-        id = 'LiveVillage'            // TODO: confirmar el slug real una vez creado el proyecto
+        id = 'LiveVillages'
         apiKey = providers.environmentVariable('HANGAR_API_KEY')
         platforms {
             paper {

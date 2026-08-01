@@ -1,0 +1,114 @@
+name: Publicar en Hangar
+
+# Se dispara con un tag "v*" (ej: v0.1.0) o a mano desde la pestaña Actions
+# de GitHub ("Run workflow"). Un push normal a main NO publica nada.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: "Subir aunque no haya cambios (salta la comprobacion de huella)"
+        required: false
+        default: false
+        type: boolean
+
+# Hace falta para poder empujar el tag "publicado-*" que sirve de registro de lo
+# que ya se subio. Mismo mecanismo que .github/workflows/publicar-curseforge.yml
+# de livevillage-mod: un tag no se borra solo a los 7 dias como la cache de
+# Actions, asi que evita resubir un jar identico para siempre, no solo una vez.
+permissions:
+  contents: write
+
+jobs:
+  # ==========================================================================
+  #  JOB 0 - Huella: decide si hay algo nuevo que publicar
+  # ==========================================================================
+  huella:
+    runs-on: ubuntu-latest
+    outputs:
+      valor: ${{ steps.calc.outputs.valor }}
+      publicar: ${{ steps.decidir.outputs.publicar }}
+    steps:
+      - name: Descargar el repositorio (con los tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Sobre ficheros RASTREADOS por git, nunca sobre el jar compilado: un jar
+      # lleva fechas dentro y dos builds del mismo codigo darian bytes distintos.
+      - name: Calcular huella
+        id: calc
+        run: |
+          set -euo pipefail
+          h=$(git ls-files -z \
+              src build.gradle settings.gradle gradle/wrapper \
+            | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12)
+          echo "valor=$h" >> "$GITHUB_OUTPUT"
+          echo "Huella: $h"
+
+      - name: Comprobar si esa huella ya se publico
+        id: decidir
+        env:
+          FORZAR: ${{ inputs.forzar }}
+        run: |
+          set -euo pipefail
+          tag="publicado-plugin-${{ steps.calc.outputs.valor }}"
+          if [ "$FORZAR" = "true" ]; then
+            echo "FORZADO, se sube igual."
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          elif git rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Sin cambios (ya existe el tag $tag). Se SALTA."
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Hay cambios. Se publica y luego se crea el tag $tag."
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ==========================================================================
+  #  JOB 1 - Publicar en Hangar
+  # ==========================================================================
+  publicar:
+    needs: huella
+    if: needs.huella.outputs.publicar == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "25"
+
+      - name: Dar permisos al wrapper de Gradle
+        run: chmod +x gradlew
+
+      - name: Compilar
+        run: ./gradlew build --no-daemon
+
+      - name: Guardar el jar como artefacto del run
+        uses: actions/upload-artifact@v4
+        with:
+          name: livevillage-plugin
+          path: build/libs/*.jar
+          retention-days: 90
+
+      - name: Publicar en Hangar
+        env:
+          HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
+        run: ./gradlew publishPluginPublicationToHangar --no-daemon
+
+      # Solo se llega aqui si la subida fue bien (un paso que falla corta el job).
+      - name: Anotar la huella publicada
+        run: |
+          set -euo pipefail
+          tag="publicado-plugin-${{ needs.huella.outputs.valor }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$tag"
+          git push origin "$tag"
+          echo "Registrado: $tag"
