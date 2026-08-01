@@ -16,6 +16,10 @@ repositories {
 
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:26.2.build.87-stable'
+    // Gson lo trae el servidor (lo usa Minecraft por dentro): compileOnly, no se empaqueta.
+    // Se mantiene JSON para el catalogo de modelos y la tabla de regalos, igual que el mod,
+    // para que un config existente se pueda copiar tal cual.
+    compileOnly 'com.google.code.gson:gson:2.11.0'
 }
 
 jar {

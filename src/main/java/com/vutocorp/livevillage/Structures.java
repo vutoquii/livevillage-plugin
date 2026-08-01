@@ -250,6 +250,10 @@ public final class Structures {
              : (r == StructureRotation.COUNTERCLOCKWISE_90 ? -(sx - 1) : 0);
     }
 
+    /** Esquina minima en el mundo de una estructura pegada con ese origen (la inversa de originFor). */
+    public static int minXOf(StructureRotation r, int sx, int sz, int originX) { return originX + offX(r, sx, sz); }
+    public static int minZOf(StructureRotation r, int sx, int sz, int originZ) { return originZ + offZ(r, sx, sz); }
+
     public static int footprintX(StructureRotation r, int sx, int sz) { return swapsAxes(r) ? sz : sx; }
     public static int footprintZ(StructureRotation r, int sx, int sz) { return swapsAxes(r) ? sx : sz; }
 

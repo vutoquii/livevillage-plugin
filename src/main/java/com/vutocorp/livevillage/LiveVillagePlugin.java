@@ -14,8 +14,12 @@ public final class LiveVillagePlugin extends JavaPlugin {
         java.io.File estructuras = new java.io.File(getDataFolder(), "structures");
         estructuras.mkdirs();
         Structures.usarCarpeta(estructuras);
+        Skins.usarCarpeta(getDataFolder());
+        String aviso = Skins.cargar();
+        if (aviso != null) getLogger().warning("Catalogo de modelos: " + aviso);
         getCommand("lv").setExecutor(new LvCommand(this, datos));
-        getLogger().info("Pueblos cargados: " + datos.villages.size());
+        getLogger().info("Pueblos cargados: " + datos.villages.size()
+            + ", modelos: " + Skins.modelIds().size());
     }
 
     @Override
