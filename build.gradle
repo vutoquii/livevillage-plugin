@@ -22,7 +22,11 @@ jar {
     archiveFileName = "livevillage-plugin-${version}.jar"
 }
 
+// El expand() SOLO sobre plugin.yml. Si se aplica a todos los recursos destroza los
+// .nbt: son binarios y el filtro los reescribe como texto.
 processResources {
     filteringCharset = 'UTF-8'
-    expand(project.properties)
+    filesMatching('plugin.yml') {
+        expand(project.properties)
+    }
 }

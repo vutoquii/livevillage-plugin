@@ -7,9 +7,11 @@ import java.util.Map;
 
 /**
  * Una casa de donador. Calco de House.java del mod para la parte de datos.
- * Lo que en el mod es "changePos/changeOld" (restaurar terreno al quitar la
- * casa) llega en la Fase 2 junto con VillageEngine: aqui no hace falta
- * todavia porque este esqueleto no coloca bloques.
+ *
+ * El registro de cambios (para restaurar el terreno al quitar la casa) guarda
+ * el estado anterior como el texto de BlockData ("minecraft:oak_stairs[facing=north,...]")
+ * en vez del NBT que usa el mod. Es reversible con Bukkit.createBlockData() y ademas
+ * queda legible en el YAML, que ayuda si hay que depurar un 'remove' a mano.
  */
 public class House {
 
@@ -32,6 +34,20 @@ public class House {
         }
     }
     public final List<Mascota> mobs = new ArrayList<>();
+
+    /** Un bloque que tocamos, con lo que habia antes, para poder deshacerlo. */
+    public static final class Cambio {
+        public final int x, y, z;
+        public final String antes;   // BlockData en texto
+        public Cambio(int x, int y, int z, String antes) {
+            this.x = x; this.y = y; this.z = z; this.antes = antes;
+        }
+    }
+    public final List<Cambio> cambios = new ArrayList<>();
+
+    public void recordChange(int x, int y, int z, String antes) {
+        cambios.add(new Cambio(x, y, z, antes));
+    }
 
     public House() {}
 
@@ -70,6 +86,11 @@ public class House {
             lista.add(mm);
         }
         m.put("mobs", lista);
+        // Los cambios se guardan como "x,y,z=blockdata": una lista de mapas por cada
+        // bloque haria el YAML enorme (una casa toca cientos de bloques).
+        List<String> cs = new ArrayList<>();
+        for (Cambio c : cambios) cs.add(c.x + "," + c.y + "," + c.z + "=" + c.antes);
+        m.put("cambios", cs);
         return m;
     }
 
@@ -95,6 +116,22 @@ public class House {
                 if (!(o instanceof Map)) continue;
                 Map<String, Object> mm = (Map<String, Object>) o;
                 h.mobs.add(new Mascota(str(mm.get("uuid")), str(mm.get("tipo")), str(mm.get("nombre"))));
+            }
+        }
+        Object cs = m.get("cambios");
+        if (cs instanceof List<?> l) {
+            for (Object o : l) {
+                String s = o == null ? "" : o.toString();
+                int eq = s.indexOf('=');
+                if (eq < 0) continue;
+                String[] xyz = s.substring(0, eq).split(",");
+                if (xyz.length != 3) continue;
+                try {
+                    h.cambios.add(new Cambio(Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]),
+                                             Integer.parseInt(xyz[2]), s.substring(eq + 1)));
+                } catch (NumberFormatException ignored) {
+                    // una linea corrupta no puede impedir que cargue el resto de la casa
+                }
             }
         }
         return h;

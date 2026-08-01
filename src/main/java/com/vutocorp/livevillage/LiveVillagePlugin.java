@@ -10,6 +10,10 @@ public final class LiveVillagePlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         datos = VillageData.cargar(getDataFolder());
+        // Carpeta donde el admin puede pisar una estructura del jar sin recompilar.
+        java.io.File estructuras = new java.io.File(getDataFolder(), "structures");
+        estructuras.mkdirs();
+        Structures.usarCarpeta(estructuras);
         getCommand("lv").setExecutor(new LvCommand(this, datos));
         getLogger().info("Pueblos cargados: " + datos.villages.size());
     }

@@ -33,7 +33,11 @@ public final class LvCommand implements CommandExecutor {
         if (args.length >= 2 && "village".equalsIgnoreCase(args[0])) {
             return village(sender, args);
         }
+        if (args.length >= 2 && "model".equalsIgnoreCase(args[0])) {
+            return ModelCommand.run(sender, args);
+        }
         sender.sendMessage("Uso: /lv village create <nombre> | /lv village list");
+        sender.sendMessage("     /lv model info <modelo> | /lv model test <modelo> [rot]");
         return true;
     }
 
