@@ -75,26 +75,17 @@ jobs:
           v=$(grep -E "^version = " build.gradle | sed -E "s/version = '([^']+)'/\1/")
           echo "valor=$v" >> "$GITHUB_OUTPUT"
 
-      # Mismo motivo que en livevillage-mod: Modrinth quiere el texto dentro de la
-      # subida, no un link a este repo (que ademas puede ser privado en el futuro).
-      - name: Extraer la seccion de esta version del CHANGELOG
+      # Mismo motivo que en livevillage-mod: Modrinth quiere el texto dentro de la subida,
+      # no un link a este repo (que ademas puede ser privado en el futuro). Y el resumen,
+      # no la seccion entera: esa documenta el POR QUE para quien lee el repo, no le sirve
+      # a quien esta mirando la pagina de descarga.
+      - name: Extraer resumen de esta version del CHANGELOG
         id: changelog
         env:
           VERSION: ${{ steps.version.outputs.valor }}
         run: |
           set -euo pipefail
-          texto=$(awk -v ver="$VERSION" '
-            /^## / {
-              if (encontrado) exit
-              if ($0 ~ ("^## " ver "([^0-9.]|$)")) { encontrado=1 }
-              next
-            }
-            encontrado { print }
-          ' CHANGELOG.md)
-          if [ -z "$texto" ]; then
-            echo "No encontre '## $VERSION' en CHANGELOG.md" >&2
-            exit 1
-          fi
+          texto=$(python3 .github/scripts/resumir-changelog.py CHANGELOG.md "$VERSION")
           {
             echo "texto<<CHANGELOG_EOF"
             echo "$texto"
@@ -149,7 +140,7 @@ jobs:
           modrinth-id: livevillages
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: build/libs/livevillage-plugin-${{ needs.huella.outputs.version }}.jar
-          name: LiveVillage Plugin ${{ needs.huella.outputs.version }} (Paper)
+          name: LiveVillages Plugin ${{ needs.huella.outputs.version }} (Paper)
           version: ${{ needs.huella.outputs.version }}+paper
           version-type: release
           changelog: ${{ needs.huella.outputs.changelog }}
