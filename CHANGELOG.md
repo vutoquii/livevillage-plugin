@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (sin publicar)
+## 0.2.0
 
 Completa el arbol de comandos que 0.1.0 dejaba pendiente, y arregla dos cosas
 encontradas probando contra un directo real:

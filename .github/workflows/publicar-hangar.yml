@@ -30,6 +30,8 @@ jobs:
     outputs:
       valor: ${{ steps.calc.outputs.valor }}
       publicar: ${{ steps.decidir.outputs.publicar }}
+      version: ${{ steps.version.outputs.valor }}
+      changelog: ${{ steps.changelog.outputs.texto }}
     steps:
       - name: Descargar el repositorio (con los tags)
         uses: actions/checkout@v4
@@ -67,6 +69,38 @@ jobs:
             echo "publicar=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Leer la version de build.gradle
+        id: version
+        run: |
+          v=$(grep -E "^version = " build.gradle | sed -E "s/version = '([^']+)'/\1/")
+          echo "valor=$v" >> "$GITHUB_OUTPUT"
+
+      # Mismo motivo que en livevillage-mod: Modrinth quiere el texto dentro de la
+      # subida, no un link a este repo (que ademas puede ser privado en el futuro).
+      - name: Extraer la seccion de esta version del CHANGELOG
+        id: changelog
+        env:
+          VERSION: ${{ steps.version.outputs.valor }}
+        run: |
+          set -euo pipefail
+          texto=$(awk -v ver="$VERSION" '
+            /^## / {
+              if (encontrado) exit
+              if ($0 ~ ("^## " ver "([^0-9.]|$)")) { encontrado=1 }
+              next
+            }
+            encontrado { print }
+          ' CHANGELOG.md)
+          if [ -z "$texto" ]; then
+            echo "No encontre '## $VERSION' en CHANGELOG.md" >&2
+            exit 1
+          fi
+          {
+            echo "texto<<CHANGELOG_EOF"
+            echo "$texto"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
   # ==========================================================================
   #  JOB 1 - Publicar en Hangar
   # ==========================================================================
@@ -74,6 +108,8 @@ jobs:
     needs: huella
     if: needs.huella.outputs.publicar == 'true'
     runs-on: ubuntu-latest
+    env:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
@@ -101,6 +137,25 @@ jobs:
         env:
           HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
         run: ./gradlew publishPluginPublicationToHangar --no-daemon
+
+      # Mismo proyecto Modrinth que el mod ("livevillages"), pero con loader "paper":
+      # es el mismo producto en dos formas (mod de cliente vs plugin de servidor), asi
+      # que comparten pagina en vez de fragmentar la busqueda en dos proyectos.
+      # Si no existe el secreto MODRINTH_TOKEN este paso se salta sin fallar el resto.
+      - name: Subir a Modrinth
+        if: ${{ env.MODRINTH_TOKEN != '' }}
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: livevillages
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: build/libs/livevillage-plugin-${{ needs.huella.outputs.version }}.jar
+          name: LiveVillage Plugin ${{ needs.huella.outputs.version }} (Paper)
+          version: ${{ needs.huella.outputs.version }}+paper
+          version-type: release
+          changelog: ${{ needs.huella.outputs.changelog }}
+          loaders: paper
+          game-versions: "1.21.4"
+          fail-mode: fail
 
       # Solo se llega aqui si la subida fue bien (un paso que falla corta el job).
       - name: Anotar la huella publicada
