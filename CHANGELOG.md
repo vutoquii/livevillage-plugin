@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+Salta de 0.2.1 a 0.7.0 para ir a la par con el mod, que en esta version estrena soporte de
+Fabric. **El plugin no cambia de comportamiento**: el codigo es el mismo que 0.2.1.
+
+- El canal de Hangar y el tipo de version en Modrinth salen ahora del NOMBRE DEL TAG
+  (`v0.7.0-beta` -> Beta) en vez de estar fijos a Release. Antes, publicar una beta obligaba
+  a lanzar el workflow a mano desde Actions.
+
 ## 0.2.1
 
 - Se publica tambien en Modrinth (proyecto compartido con el mod,

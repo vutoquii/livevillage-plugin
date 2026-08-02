@@ -32,6 +32,8 @@ jobs:
       publicar: ${{ steps.decidir.outputs.publicar }}
       version: ${{ steps.version.outputs.valor }}
       changelog: ${{ steps.changelog.outputs.texto }}
+      tipo: ${{ steps.tipo.outputs.valor }}
+      canal: ${{ steps.tipo.outputs.canal }}
     steps:
       - name: Descargar el repositorio (con los tags)
         uses: actions/checkout@v4
@@ -68,6 +70,31 @@ jobs:
             echo "Hay cambios. Se publica y luego se crea el tag $tag."
             echo "publicar=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # Tipo de release, igual que en el repo del mod: lanzado a mano manda el desplegable,
+      # y lanzado por TAG sale del NOMBRE DEL TAG. Antes no habia forma de publicar una beta
+      # con un tag.
+      #
+      #   v0.7.0-beta -> beta / canal Beta      v0.7.0 -> release / canal Release
+      #
+      # OJO con el canal de Hangar: son POR PROYECTO y hay que crearlos en su web antes de
+      # usarlos. Si el proyecto no tiene canal "Beta", el paso de Hangar falla. Falla en
+      # limpio: va antes que Modrinth, asi que no se publica nada a medias ni se anota la
+      # huella, y con reintentar basta.
+      - name: Decidir el tipo de release
+        id: tipo
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF" in
+            *-beta*)  valor=beta;    canal=Beta ;;
+            *-alpha*) valor=alpha;   canal=Alpha ;;
+            *)        valor=release; canal=Release ;;
+          esac
+          echo "valor=$valor" >> "$GITHUB_OUTPUT"
+          echo "canal=$canal" >> "$GITHUB_OUTPUT"
+          echo "Tipo: $valor  |  canal de Hangar: $canal  (ref: $REF)"
 
       - name: Leer la version de build.gradle
         id: version
@@ -127,7 +154,7 @@ jobs:
       - name: Publicar en Hangar
         env:
           HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
-        run: ./gradlew publishPluginPublicationToHangar --no-daemon
+        run: ./gradlew publishPluginPublicationToHangar --no-daemon -Phangar_channel='${{ needs.huella.outputs.canal }}'
 
       # Mismo proyecto Modrinth que el mod ("livevillages"), pero con loader "paper":
       # es el mismo producto en dos formas (mod de cliente vs plugin de servidor), asi
@@ -142,7 +169,7 @@ jobs:
           files: build/libs/livevillage-plugin-${{ needs.huella.outputs.version }}.jar
           name: LiveVillages Plugin ${{ needs.huella.outputs.version }} (Paper)
           version: ${{ needs.huella.outputs.version }}+paper
-          version-type: release
+          version-type: ${{ needs.huella.outputs.tipo }}
           changelog: ${{ needs.huella.outputs.changelog }}
           loaders: paper
           game-versions: "1.21.4"
