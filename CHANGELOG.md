@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Se publica tambien en Modrinth (proyecto compartido con el mod,
+  [livevillages](https://modrinth.com/project/livevillages), loader `paper`),
+  ademas de Hangar. Sin cambios de codigo.
+
 ## 0.2.0
 
 Completa el arbol de comandos que 0.1.0 dejaba pendiente, y arregla dos cosas
