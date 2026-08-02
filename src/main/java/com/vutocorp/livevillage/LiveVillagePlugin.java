@@ -41,6 +41,19 @@ public final class LiveVillagePlugin extends JavaPlugin {
             event.registrar().register(arbol.build(), "Comandos de LiveVillage"));
         Bukkit.getPluginManager().registerEvents(new PuebloGui(), this);
 
+        // Pausa de IA: /lv village ai solo cambia v.aiPause, esto es lo que de verdad
+        // congela/despierta aldeanos cada AI_CHECK_INTERVAL ticks. Igual que el mod
+        // (LiveVillage.onServerTick), pero con el scheduler de Bukkit en vez de un evento
+        // de NeoForge.
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            Villagers.lastActive = 0;
+            Villagers.lastPaused = 0;
+            for (Village v : datos.villages.values()) {
+                org.bukkit.World w = VillageEngine.worldOf(v);
+                if (w != null) Villagers.tickAiPause(w, v);
+            }
+        }, Cfg.AI_CHECK_INTERVAL, Cfg.AI_CHECK_INTERVAL);
+
         getLogger().info("Pueblos cargados: " + datos.villages.size()
             + ", modelos: " + Skins.modelIds().size());
     }

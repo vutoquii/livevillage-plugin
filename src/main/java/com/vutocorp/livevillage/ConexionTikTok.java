@@ -106,7 +106,7 @@ public final class ConexionTikTok {
         if (!disponible()) {
             escucha.onAviso("No encuentro la libreria de TikTok: " + dondeSalio());
             escucha.onAviso("Copia los jars de TikTokLiveJava a " + carpetaLib()
-                + "  (o usa el puente de Python). Detalles: /lv tiktok diag");
+                + ". Detalles: /lv tiktok diag");
             return;
         }
         // En su propio hilo: la conexion bloquea y no puede colgar el hilo principal del server.

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.vutocorp.livevillage'
-version = '0.1.0'
+version = '0.2.0'
 // Version de Minecraft con la que publicar en Hangar. Separada de 'version' del plugin
 // por el mismo motivo que en el mod: si Hangar algun dia soporta varias versiones de
 // Minecraft a la vez para este plugin, se toca solo esta linea.

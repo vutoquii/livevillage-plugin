@@ -27,6 +27,11 @@ public final class TikTokManager {
     private static ConexionTikTok conexion;
     private static String puebloDestino = "";
     private static VillageData datos;
+    // Quien mando el /lv tiktok connect: onAviso llega en el hilo de la conexion, mucho
+    // despues de que el comando ya devolvio, y es el unico sitio donde avisar de un
+    // "conectado" o un fallo real (la libreria reintenta sola). Sin esto el aviso solo
+    // se veia en la consola del servidor y nunca en el chat de quien lo pidio.
+    private static CommandSender ultimoSender;
 
     public static void init(VillageData d) { datos = d; }
 
@@ -57,6 +62,7 @@ public final class TikTokManager {
             return;
         }
         puebloDestino = pueblo;
+        ultimoSender = sender;
         if (conexion == null) {
             conexion = new ConexionTikTok(new ConexionTikTok.Escucha() {
                 @Override
@@ -77,6 +83,13 @@ public final class TikTokManager {
                 @Override
                 public void onAviso(String texto) {
                     LiveVillagePlugin.LOGGER.info("[LiveVillage] " + texto);
+                    CommandSender destino = ultimoSender;
+                    if (destino == null) return;
+                    // onAviso llega desde el hilo de la conexion (ver ConexionTikTok.conectar):
+                    // cualquier cosa que toque la API de Bukkit tiene que volver al hilo principal.
+                    Bukkit.getScheduler().runTask(
+                        Bukkit.getPluginManager().getPlugin("LiveVillage"),
+                        () -> destino.sendMessage("[LiveVillage] " + texto));
                 }
             });
         }

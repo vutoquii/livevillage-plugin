@@ -1,6 +1,31 @@
 # Changelog
 
-## 0.1.0 (sin publicar)
+## 0.2.0 (sin publicar)
+
+Completa el arbol de comandos que 0.1.0 dejaba pendiente, y arregla dos cosas
+encontradas probando contra un directo real:
+
+- **`/lv gift set id|monedas|tramo|nombre`** y **`/lv gift remove`**: editar la
+  tabla de regalo-a-casa por comando, sin tocar el JSON a mano. El backend
+  (`Regalos.poner/guardar`) ya estaba portado; faltaba el comando.
+- **`/lv mob list|remove`** y **`/lv mob set id|nombre|monedas|tramo`**: lo
+  mismo para la tabla de regalo-a-mascota (`Mascotas`).
+- **`/lv village ai on|off|status`** y **`/lv village forceload on|off|status`**:
+  pausa de IA y fijado manual de chunks durante un directo largo. Trae
+  `Chunks.java` (version reducida del homonimo del mod: solo el modo manual,
+  sin el `Guard` automatico de construccion, que en Bukkit no hace falta -
+  ver el comentario de la clase).
+- **La pausa de IA no hacia nada**: `Villagers.tickAiPause()` estaba escrito
+  desde 0.1.0 pero nada lo llamaba nunca. Ahora `LiveVillagePlugin.onEnable()`
+  la programa cada `Cfg.AI_CHECK_INTERVAL` ticks, igual que el mod la llama
+  desde su evento de tick de servidor.
+- **`/lv tiktok connect` no avisaba de nada al chat**: `onAviso()` (conectado,
+  error, reconectando) solo se logueaba en la consola del servidor. Ahora
+  tambien le llega a quien ejecuto el connect.
+- Quitada una mencion residual al puente de Python en `ConexionTikTok.java`
+  que se coló al portar el archivo antes de que el mod le quitara la suya.
+
+## 0.1.0
 
 Primera version funcional del port a plugin Paper. Fases 1-5 del roadmap,
 probadas en servidor real:

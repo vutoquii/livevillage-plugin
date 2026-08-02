@@ -29,10 +29,10 @@ import org.bukkit.entity.Player;
  *
  * No es una copia 1:1 de LvCommands.java del mod (1261 lineas, ~80 hojas): se cubre el
  * camino operativo completo -pueblo, casas, modelos, mascotas, TikTok, regalos, permisos-
- * y quedan fuera del alcance de esta fase los editores en caliente de las tablas de
- * regalo/mascota por comando (gift set id/monedas/tramo, mob set ...) y forceload/ai de
- * chunks: siguen el mismo patron que lo ya escrito aqui, se añaden sin rediseñar nada
- * el dia que hagan falta.
+ * incluyendo los editores en caliente de las tablas de regalo/mascota (gift set
+ * id/monedas/tramo/nombre, mob set ...). Queda fuera del alcance de esta fase el
+ * forceload/ai de chunks: sigue el mismo patron que lo ya escrito aqui, se añade sin
+ * rediseñar nada el dia que haga falta.
  *
  * Los argumentos hablan en tipos de Brigadier (no String[] a mano), y las sugerencias
  * (pueblos, modelos) salen de los datos reales, no de una lista escrita aparte.
@@ -72,7 +72,84 @@ public final class LvBrigadier {
             .then(Commands.literal("close").then(argPueblo().executes(c -> villageAbrir(c, false))))
             .then(Commands.literal("setactive").then(argPueblo().executes(this::villageActivar)))
             .then(Commands.literal("delete").then(argPueblo().executes(this::villageBorrar)))
-            .then(Commands.literal("tp").then(argPueblo().executes(this::villageTp)));
+            .then(Commands.literal("tp").then(argPueblo().executes(this::villageTp)))
+            .then(Commands.literal("ai")
+                .then(argPueblo()
+                    .then(Commands.literal("on").executes(c -> villageAi(c, true)))
+                    .then(Commands.literal("off").executes(c -> villageAi(c, false)))
+                    .then(Commands.literal("status").executes(this::villageAiStatus))))
+            .then(Commands.literal("forceload")
+                .then(argPueblo()
+                    .then(Commands.literal("on").executes(c -> villageForceload(c, true)))
+                    .then(Commands.literal("off").executes(c -> villageForceload(c, false)))
+                    .then(Commands.literal("status").executes(this::villageForceStatus))));
+    }
+
+    private int villageAi(CommandContext<CommandSourceStack> c, boolean on) {
+        CommandSender sender = c.getSource().getSender();
+        Village v = pueblo(c);
+        if (v == null) { sender.sendMessage("No existe ese pueblo."); return 0; }
+        if (!Perms.exigirGestion(sender, v)) return 0;
+        v.aiPause = on;
+        datos.guardar();
+        if (!on) {
+            World w = VillageEngine.worldOf(v);
+            for (House h : v.houses) com.vutocorp.livevillage.Villagers.wake(w, h);
+        }
+        sender.sendMessage("Pausa de IA " + (on ? "ACTIVADA" : "DESACTIVADA") + " en '" + v.name + "'."
+            + (on ? " Se congelan los aldeanos a mas de " + com.vutocorp.livevillage.Cfg.AI_ACTIVE_RADIUS
+                    + " bloques de cualquier jugador, a partir de " + com.vutocorp.livevillage.Cfg.AI_PAUSE_MIN_HOUSES + " casas."
+                  : " Todos los aldeanos cargados vuelven a moverse."));
+        return 1;
+    }
+
+    private int villageAiStatus(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        Village v = pueblo(c);
+        if (v == null) { sender.sendMessage("No existe ese pueblo."); return 0; }
+        World w = VillageEngine.worldOf(v);
+        int[] cnt = com.vutocorp.livevillage.Villagers.countAi(w, v);
+        boolean activa = v.aiPause && v.houses.size() >= com.vutocorp.livevillage.Cfg.AI_PAUSE_MIN_HOUSES;
+        sender.sendMessage("Pueblo '" + v.name + "'  pausa de IA: " + (v.aiPause ? "ON" : "OFF")
+            + (v.aiPause && !activa ? " (aun sin efecto: " + v.houses.size() + " casas, hace falta "
+                + com.vutocorp.livevillage.Cfg.AI_PAUSE_MIN_HOUSES + ")" : ""));
+        sender.sendMessage("  aldeanos moviendose: " + cnt[0] + "   congelados: " + cnt[1]
+            + "   en chunk descargado: " + cnt[2] + "   sin aldeano: " + cnt[3]);
+        return 1;
+    }
+
+    private int villageForceload(CommandContext<CommandSourceStack> c, boolean on) {
+        CommandSender sender = c.getSource().getSender();
+        Village v = pueblo(c);
+        if (v == null) { sender.sendMessage("No existe ese pueblo."); return 0; }
+        if (!Perms.exigirGestion(sender, v)) return 0;
+        World w = VillageEngine.worldOf(v);
+        int total = com.vutocorp.livevillage.Chunks.countFor(v);
+        int n = com.vutocorp.livevillage.Chunks.apply(w, v, on);
+        v.forced = on;
+        datos.guardar();
+        if (!on) {
+            sender.sendMessage("Chunks del pueblo '" + v.name + "' DESCARGADOS");
+            sender.sendMessage("  " + n + " chunks liberados. El pueblo vuelve a reposo: se cargaran "
+                + "solos cuando alguien se acerque o entre una donacion.");
+            return 1;
+        }
+        sender.sendMessage("Chunks del pueblo '" + v.name + "' CARGADOS");
+        sender.sendMessage("  " + n + " chunks fijados en memoria"
+            + (n < total ? " (de " + total + ": se han fijado los mas cercanos a la plaza)" : "")
+            + ". El pueblo sigue vivo aunque no haya nadie: aldeanos moviendose, cultivos creciendo.");
+        sender.sendMessage("  Consume TPS mientras este activo: acuerdate de apagarlo al terminar el "
+            + "directo con /lv village forceload " + v.name + " off");
+        return 1;
+    }
+
+    private int villageForceStatus(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        Village v = pueblo(c);
+        if (v == null) { sender.sendMessage("No existe ese pueblo."); return 0; }
+        sender.sendMessage("Pueblo '" + v.name + "'  forceload: " + (v.forced ? "ON" : "OFF")
+            + "  (" + com.vutocorp.livevillage.Chunks.countFor(v) + " chunks cubririan el pueblo entero)");
+        return 1;
     }
 
     private int villageCreate(CommandContext<CommandSourceStack> c, String skinArg) {
@@ -273,11 +350,52 @@ public final class LvBrigadier {
 
     private LiteralArgumentBuilder<CommandSourceStack> mob() {
         return Commands.literal("mob")
+            .then(Commands.literal("list").executes(this::mobList))
             .then(Commands.literal("give")
                 .then(argPueblo()
                     .then(Commands.argument("donador", StringArgumentType.word())
                         .then(Commands.argument("entidad", StringArgumentType.word())
-                            .executes(this::mobGive)))));
+                            .executes(this::mobGive)))))
+            .then(Commands.literal("remove")
+                .then(Commands.argument("numero", IntegerArgumentType.integer(1))
+                    .executes(this::mobRemove)))
+            .then(Commands.literal("set")
+                .then(Commands.literal("id")
+                    .then(Commands.argument("giftId", LongArgumentType.longArg(1))
+                        .then(Commands.argument("mob", StringArgumentType.word())
+                            .suggests((c, b) -> sugerir(b, com.vutocorp.livevillage.Mascotas.idsSugeridos()))
+                            .executes(c -> mobSet(c, LongArgumentType.getLong(c, "giftId"), null, 0, 0, 0,
+                                StringArgumentType.getString(c, "mob"))))))
+                .then(Commands.literal("nombre")
+                    .then(Commands.argument("regalo", StringArgumentType.string())
+                        .then(Commands.argument("mob", StringArgumentType.word())
+                            .suggests((c, b) -> sugerir(b, com.vutocorp.livevillage.Mascotas.idsSugeridos()))
+                            .executes(c -> mobSet(c, 0, StringArgumentType.getString(c, "regalo"), 0, 0, 0,
+                                StringArgumentType.getString(c, "mob"))))))
+                .then(Commands.literal("monedas")
+                    .then(Commands.argument("monedas", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("mob", StringArgumentType.word())
+                            .suggests((c, b) -> sugerir(b, com.vutocorp.livevillage.Mascotas.idsSugeridos()))
+                            .executes(c -> mobSet(c, 0, null, IntegerArgumentType.getInteger(c, "monedas"), 0, 0,
+                                StringArgumentType.getString(c, "mob"))))))
+                .then(Commands.literal("tramo")
+                    .then(Commands.argument("min", IntegerArgumentType.integer(0))
+                        .then(Commands.argument("max", IntegerArgumentType.integer(0))
+                            .then(Commands.argument("mob", StringArgumentType.word())
+                                .suggests((c, b) -> sugerir(b, com.vutocorp.livevillage.Mascotas.idsSugeridos()))
+                                .executes(c -> mobSet(c, 0, null, 0,
+                                    IntegerArgumentType.getInteger(c, "min"),
+                                    IntegerArgumentType.getInteger(c, "max"),
+                                    StringArgumentType.getString(c, "mob"))))))));
+    }
+
+    private int mobList(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        var reglas = com.vutocorp.livevillage.Mascotas.reglas();
+        if (reglas.isEmpty()) { sender.sendMessage("No hay reglas de mascota todavia."); return 1; }
+        int i = 1;
+        for (var r : reglas) sender.sendMessage("  " + (i++) + ". " + r.describe() + "  ->  " + r.mob);
+        return 1;
     }
 
     private int mobGive(CommandContext<CommandSourceStack> c) {
@@ -291,6 +409,38 @@ public final class LvBrigadier {
         sender.sendMessage(r.ok ? ("OK: " + r.detalle) : ("FALLO: " + r.detalle));
         if (r.ok) datos.guardar();
         return r.ok ? 1 : 0;
+    }
+
+    private int mobSet(CommandContext<CommandSourceStack> c, long giftId, String nombre,
+                       int monedas, int min, int max, String mob) {
+        CommandSender sender = c.getSource().getSender();
+        if (!com.vutocorp.livevillage.Mascotas.existeMob(mob)) {
+            sender.sendMessage("No existe la entidad '" + mob + "'.");
+            return 0;
+        }
+        var r = new com.vutocorp.livevillage.Mascotas.Regla();
+        r.giftId = giftId; r.nombre = nombre; r.monedas = monedas;
+        r.monedasMin = min; r.monedasMax = max; r.mob = mob;
+        com.vutocorp.livevillage.Mascotas.poner(r);
+        try { com.vutocorp.livevillage.Mascotas.guardar(); }
+        catch (Exception e) { sender.sendMessage("Regla aplicada, pero no pude guardarla en el fichero: " + e.getMessage()); }
+        sender.sendMessage("Regla: " + r.describe() + "  ->  " + mob);
+        return 1;
+    }
+
+    private int mobRemove(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        int numero = IntegerArgumentType.getInteger(c, "numero");
+        var reglas = com.vutocorp.livevillage.Mascotas.reglas();
+        if (numero < 1 || numero > reglas.size()) {
+            sender.sendMessage("Numero fuera de rango (1.." + reglas.size() + "). Mira /lv mob list.");
+            return 0;
+        }
+        var r = reglas.get(numero - 1);
+        com.vutocorp.livevillage.Mascotas.quitar(numero);
+        try { com.vutocorp.livevillage.Mascotas.guardar(); } catch (Exception ignored) { }
+        sender.sendMessage("Regla quitada: " + r.describe() + " -> " + r.mob + ".  Quedan " + reglas.size() + ".");
+        return 1;
     }
 
     // ==================== TIKTOK ====================
@@ -319,12 +469,100 @@ public final class LvBrigadier {
     private LiteralArgumentBuilder<CommandSourceStack> gift() {
         return Commands.literal("gift")
             .then(Commands.literal("list").executes(this::giftList))
+            .then(Commands.literal("log")
+                .then(Commands.literal("on").executes(c -> giftLog(c, true)))
+                .then(Commands.literal("off").executes(c -> giftLog(c, false)))
+                .then(Commands.literal("show").executes(this::giftVistos)))
             .then(Commands.literal("simulate")
                 .then(argPueblo()
                     .then(Commands.argument("donador", StringArgumentType.word())
                         .then(Commands.argument("giftId", LongArgumentType.longArg(0))
                             .then(Commands.argument("monedas", IntegerArgumentType.integer(0))
-                                .executes(this::giftSimulate))))));
+                                .executes(this::giftSimulate))))))
+            .then(Commands.literal("set")
+                .then(Commands.literal("id")
+                    .then(Commands.argument("giftId", LongArgumentType.longArg(1))
+                        .then(Commands.argument("modelo", StringArgumentType.word())
+                            .suggests((c, b) -> sugerir(b, Skins.modelIds()))
+                            .executes(c -> giftSet(c, LongArgumentType.getLong(c, "giftId"), null, 0, 0, 0,
+                                StringArgumentType.getString(c, "modelo"))))))
+                .then(Commands.literal("monedas")
+                    .then(Commands.argument("cantidad", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("modelo", StringArgumentType.word())
+                            .suggests((c, b) -> sugerir(b, Skins.modelIds()))
+                            .executes(c -> giftSet(c, 0, null, IntegerArgumentType.getInteger(c, "cantidad"), 0, 0,
+                                StringArgumentType.getString(c, "modelo"))))))
+                .then(Commands.literal("tramo")
+                    .then(Commands.argument("min", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("max", IntegerArgumentType.integer(1))
+                            .then(Commands.argument("modelo", StringArgumentType.word())
+                                .suggests((c, b) -> sugerir(b, Skins.modelIds()))
+                                .executes(c -> giftSet(c, 0, null, 0,
+                                    IntegerArgumentType.getInteger(c, "min"),
+                                    IntegerArgumentType.getInteger(c, "max"),
+                                    StringArgumentType.getString(c, "modelo")))))))
+                .then(Commands.literal("nombre")
+                    .then(Commands.argument("modelo", StringArgumentType.word())
+                        .suggests((c, b) -> sugerir(b, Skins.modelIds()))
+                        .then(Commands.argument("regalo", StringArgumentType.greedyString())
+                            .executes(c -> giftSet(c, 0, StringArgumentType.getString(c, "regalo"), 0, 0, 0,
+                                StringArgumentType.getString(c, "modelo")))))))
+            .then(Commands.literal("remove")
+                .then(Commands.argument("indice", IntegerArgumentType.integer(1))
+                    .executes(this::giftRemove)));
+    }
+
+    private int giftSet(CommandContext<CommandSourceStack> c, long giftId, String nombre,
+                        int monedas, int min, int max, String modelo) {
+        CommandSender sender = c.getSource().getSender();
+        if (Skins.model(modelo) == null) {
+            sender.sendMessage("No existe el modelo '" + modelo + "'. Mira /lv model list.");
+            return 0;
+        }
+        var r = new com.vutocorp.livevillage.Regalos.Regla();
+        r.giftId = giftId; r.nombre = nombre; r.monedas = monedas;
+        r.monedasMin = min; r.monedasMax = max; r.modelo = modelo;
+        com.vutocorp.livevillage.Regalos.poner(r);
+        try { com.vutocorp.livevillage.Regalos.guardar(); }
+        catch (Exception e) { sender.sendMessage("Regla aplicada, pero no pude guardarla en el fichero: " + e.getMessage()); }
+        sender.sendMessage("Regla: " + r.describe() + "  ->  " + modelo);
+        return 1;
+    }
+
+    private int giftRemove(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        int indice = IntegerArgumentType.getInteger(c, "indice");
+        var reglas = com.vutocorp.livevillage.Regalos.reglas();
+        if (indice < 1 || indice > reglas.size()) {
+            sender.sendMessage("Numero fuera de rango (1.." + reglas.size() + "). Mira /lv gift list.");
+            return 0;
+        }
+        var r = reglas.remove(indice - 1);
+        try { com.vutocorp.livevillage.Regalos.guardar(); } catch (Exception ignored) { }
+        sender.sendMessage("Regla quitada: " + r.describe() + " -> " + r.modelo + ".  Quedan " + reglas.size() + ".");
+        return 1;
+    }
+
+    private int giftLog(CommandContext<CommandSourceStack> c, boolean on) {
+        com.vutocorp.livevillage.Regalos.registrando = on;
+        c.getSource().getSender().sendMessage(on
+            ? "Registro de regalos ON. Envia el regalo en tu directo y luego /lv gift log show "
+              + "para ver su giftId real. Es la forma fiable de saberlo: el NOMBRE depende del "
+              + "idioma de la conexion, el id no."
+            : "Registro de regalos OFF.");
+        return 1;
+    }
+
+    private int giftVistos(CommandContext<CommandSourceStack> c) {
+        CommandSender sender = c.getSource().getSender();
+        var vistos = com.vutocorp.livevillage.Regalos.vistos();
+        if (vistos.isEmpty()) {
+            sender.sendMessage("Todavia no ha entrado ningun regalo. Activa /lv gift log on y espera uno.");
+            return 1;
+        }
+        sender.sendMessage("Regalos vistos (id -> nombre y monedas):");
+        for (var e : vistos.entrySet()) sender.sendMessage("  " + e.getKey() + "  ->  " + e.getValue());
+        return 1;
     }
 
     private int giftList(CommandContext<CommandSourceStack> c) {
