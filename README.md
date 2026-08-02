@@ -15,12 +15,13 @@ este proyecto y las decisiones de cada fase.
 
 ## Diferencia importante frente al mod
 
-El mod corre en el mundo de un solo jugador: el streamer abre Minecraft y el
-cliente se conecta a TikTok, sin servidor de por medio. **Este plugin necesita
-un servidor Paper corriendo.** A cambio, los espectadores pueden entrar al
-pueblo con un cliente vanilla (nadie instala nada), y no hace falta portar el
-plugin cada vez que cambia la version de Minecraft: la API de Paper es
-estable entre versiones, a diferencia de las internas de NeoForge que rompen
+El mod tambien funciona en un servidor dedicado, pero la conexion a TikTok
+vive en el cliente de quien ejecuta `/lv tiktok connect`: ese jugador
+necesita el mod instalado. En el plugin la conexion corre en el servidor
+mismo, asi que nadie instala nada del lado cliente y cualquier jugador
+vanilla puede entrar al pueblo, y no hace falta portar el plugin cada vez
+que cambia la version de Minecraft: la API de Paper es estable entre
+versiones, a diferencia de las internas de NeoForge que rompen
 en cada salto.
 
 ## Instalacion
