@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+### Arreglado
+
+- **`/lv gui` se tragaba las casas en silencio a partir de la decima.** El inventario
+  reservaba una fila entera para la flecha "volver" pero no la sumaba al tamaño, asi que las
+  casas que no cabian simplemente no se dibujaban, sin ningun aviso: 15 casas mostraban 9, 60
+  mostraban 45. Un pueblo de donaciones pasa de diez casas en un rato, asi que en la practica
+  casi nunca se veian las casas propias.
+
+  Ademas un inventario tiene 54 huecos como maximo y no crece, asi que sin paginacion no
+  habia forma de ver un pueblo grande entero. Ahora las dos listas (pueblos y casas) van
+  paginadas, con barra de navegacion abajo. No se queda nada fuera.
+
 ## 0.7.0
 
 Salta de 0.2.1 a 0.7.0 para ir a la par con el mod, que en esta version estrena soporte de
